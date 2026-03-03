@@ -3,6 +3,14 @@ import pandas as pd
 import numpy as np
 import time
 
+
+if "run_counter" not in st.session_state:
+  st.session_state.run_counter = 0
+
+st.session_state.run_counter += 1
+
+st.write(f"This is your {st.session_state.run_counter} run of this page")
+
 st.text_input("Your_name",key="name")
 
 df = pd.DataFrame({
