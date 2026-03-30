@@ -4,6 +4,8 @@ from langchain_community.utilities import ArxivAPIWrapper,WikipediaAPIWrapper
 from langchain_community.tools import ArxivQueryRun, WikipediaQueryRun, DuckDuckGoSearchRun
 from langchain_community.callbacks.streamlit import StreamlitCallbackHandler
 from langchain.agents import create_agent
+from langchain.messages import HumanMessage, AIMessage
+from langchain_core.callbacks.base import BaseCallbackHandler
 
 
 ##Arxiv and wikipedia Tools
@@ -15,7 +17,14 @@ wiki=WikipediaQueryRun(api_wrapper=api_wrapper)
 
 search=DuckDuckGoSearchRun(name="Search")
 
-
+class StreamHandler(BaseCallbackHandler):
+    def __init__(self, container, initial_text=""):
+        self.container = container
+        self.text = initial_text
+ 
+    def on_llm_new_token(self, token: str, **kwargs) -> None:
+        self.text += token
+        self.container.markdown(self.text)
 
 
 st.title("🔎 Langchain - Chat with AI Search")
@@ -25,27 +34,33 @@ Try more Langchain 🤝 Streamlit Agent examples at [https://github.com/langchai
 """ 
 
 if "messages" not in st.session_state:
-    st.session_state["messages"]=[
-        {"role":"assistant","content":"Hi, I'm a chatbot who can search the web. How can I help?"}
-    ]
-    
-for msg in st.session_state.messages:
-    st.chat_message(msg['role']).write(msg['content'])
+    st.session_state["messages"]={
+        "messages":[AIMessage("Hi, I'm a chatbot who can search the web. How can I help?")]
+    }
+
+for msg in st.session_state.messages["messages"]:
+    if type(msg) == HumanMessage:
+       role = "user"
+    elif type(msg) == AIMessage and len(msg.content)>0:
+       role = "assistant"
+    else:
+       continue
+    st.chat_message(role).write(msg.content)
     
     
 if prompt:=st.chat_input(placeholder="What is machine learning?"):
-    st.session_state.messages.append({"role":"user", "content":prompt})
-    st.chat_message("user").write(prompt)
-    
-    llmOllama = ChatOllama(
+  st.session_state.messages["messages"].append(HumanMessage(prompt))
+  st.chat_message("user").write(prompt)
+
+  llmOllama = ChatOllama(
     model="llama3.1:8b",
     temperature=0
-    )
-    tools=[arxiv,wiki,search]
-    agent = create_agent(model=llmOllama, tools=tools, system_prompt="You are a helpful assistant")
-    st_cb=StreamlitCallbackHandler(st.sidebar.container(), expand_new_thoughts=False)
+  )
+  tools=[arxiv,wiki,search]
+  agent = create_agent(model=llmOllama, tools=tools, system_prompt="You are a helpful assistant")
+  st_cb=StreamHandler(st.sidebar.container())
 
-    with st.chat_message("assistant"):
-        response=agent.invoke({"messages": st.session_state.messages}, callbacks=[st_cb])
-        st.write(response)
-        st.session_state.messages.append({'role':'assistant',"content":response["messages"][-1].content})
+  with st.chat_message("assistant"):
+    st.session_state.messages=agent.invoke(st.session_state.messages, config = {"callbacks":[st_cb]})
+    st.write(st.session_state.messages["messages"][-1].content)
+    st.sidebar.write(st.session_state.messages)
