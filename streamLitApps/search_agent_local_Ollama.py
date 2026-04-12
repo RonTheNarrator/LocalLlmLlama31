@@ -8,6 +8,7 @@ from langchain.messages import HumanMessage, AIMessage
 from langchain_core.callbacks.base import BaseCallbackHandler
 
 
+
 ##Arxiv and wikipedia Tools
 arxiv_wrapper=ArxivAPIWrapper(top_k_results=1, doc_content_chars_max=500)
 arxiv=ArxivQueryRun(api_wrapper=arxiv_wrapper)
@@ -24,14 +25,11 @@ class StreamHandler(BaseCallbackHandler):
  
     def on_llm_new_token(self, token: str, **kwargs) -> None:
         self.text += token
-        self.container.markdown(self.text)
+        self.container.re(token)
+
 
 
 st.title("🔎 Langchain - Chat with AI Search")
-"""
-In this example, we're using `StreamlitCallbackHandler` to display the thoughts and actions of an agent in an interactive Streamlit app.
-Try more Langchain 🤝 Streamlit Agent examples at [https://github.com/langchain-ai/streamlit-agent]
-""" 
 
 if "messages" not in st.session_state:
     st.session_state["messages"]={
@@ -61,6 +59,9 @@ if prompt:=st.chat_input(placeholder="What is machine learning?"):
   st_cb=StreamHandler(st.sidebar.container())
 
   with st.chat_message("assistant"):
-    st.session_state.messages=agent.invoke(st.session_state.messages, config = {"callbacks":[st_cb]})
+    st.session_state.messages=agent.stream(st.session_state.messages, config = {"callbacks":[st_cb]})
     st.write(st.session_state.messages["messages"][-1].content)
     st.sidebar.write(st.session_state.messages)
+
+
+#Can a barnacle reattach itself if its detached
